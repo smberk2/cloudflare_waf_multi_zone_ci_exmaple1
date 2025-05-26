@@ -23,6 +23,11 @@ resource "cloudflare_ruleset" "waf_ruleset" {
   kind        = "zone"
   phase       = "http_request_firewall_custom"
 
+  # 添加 lifecycle 塊來處理衝突
+  lifecycle {
+    create_before_destroy = true
+  }
+
   dynamic "rules" {
     for_each = local.config.rules
     content {
