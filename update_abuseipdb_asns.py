@@ -7,11 +7,49 @@ CLOUDFLARE_API_TOKEN = os.getenv("TF_VAR_cloudflare_api_token")
 OUTPUT_FILE = "rules.yaml"
 MAX_ASNS = 50
 
-# Zone IDs from terraform.tfvars
-ZONE_IDS = {
-    "homieyeng.top": "1791cd65881eb3caf7d1a3cb315342a5",
-    "homieyang.dpdns.org": "42e0fad5233017cf842727c41ce3ef89"
-}
+# Zone IDs - 動態從 terraform.tfvars 讀取以確保一致性
+def load_zone_ids_from_tfvars():
+    """從 terraform.tfvars 文件讀取 zone_ids"""
+    try:
+        zone_ids = {}
+        with open('terraform.tfvars', 'r') as f:
+            content = f.read()
+
+        # 簡單解析 terraform.tfvars 中的 zone_ids
+        import re
+
+        # 匹配 zone_ids 區塊
+        zone_block_pattern = r'zone_ids\s*=\s*\{([^}]+)\}'
+        zone_block_match = re.search(zone_block_pattern, content, re.DOTALL)
+
+        if zone_block_match:
+            zone_block_content = zone_block_match.group(1)
+            # 匹配每個 zone 條目
+            zone_pattern = r'"([^"]+)"\s*=\s*"([^"]+)"'
+            matches = re.findall(zone_pattern, zone_block_content)
+
+            for domain, zone_id in matches:
+                zone_ids[domain] = zone_id
+
+        if zone_ids:
+            print(f"📋 Loaded {len(zone_ids)} zones from terraform.tfvars:")
+            for domain, zone_id in zone_ids.items():
+                print(f"   {domain}: {zone_id}")
+        else:
+            print("⚠️ No zone_ids found in terraform.tfvars")
+
+        return zone_ids
+    except FileNotFoundError:
+        print("❌ terraform.tfvars file not found")
+        print("Please ensure terraform.tfvars exists with zone_ids configuration")
+        return {}
+    except Exception as e:
+        print(f"❌ Error reading terraform.tfvars: {e}")
+        print("Please check terraform.tfvars format")
+        return {}
+
+# 動態載入 Zone IDs
+ZONE_IDS = load_zone_ids_from_tfvars()
 
 def get_known_bad_asns():
     """
@@ -202,7 +240,7 @@ def delete_ruleset(zone_id, ruleset_id, ruleset_name):
     if not CLOUDFLARE_API_TOKEN:
         print("Warning: CLOUDFLARE_API_TOKEN not found, skipping ruleset deletion")
         return False
-        
+
     headers = {
         "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}",
         "Content-Type": "application/json"
@@ -222,48 +260,68 @@ def delete_ruleset(zone_id, ruleset_id, ruleset_name):
 def cleanup_existing_rulesets():
     """清理現有的 ruleset，確保沒有衝突"""
     if not CLOUDFLARE_API_TOKEN:
-        print("Skipping ruleset cleanup - no Cloudflare API token")
+        print("⚠️ Skipping ruleset cleanup - no Cloudflare API token")
+        print("   This may cause conflicts if rulesets already exist")
         return
 
     print("\n🔍 Cleaning up existing rulesets to prevent conflicts...")
 
     # 檢查是否有提供 zone_ids
     if not ZONE_IDS:
-        print("❌ No zone IDs provided in ZONE_IDS dictionary")
-        print("Please update the ZONE_IDS variable in the script")
+        print("❌ No zone IDs loaded from terraform.tfvars")
+        print("   Please ensure terraform.tfvars contains valid zone_ids configuration")
+        print("   Example format:")
+        print("   zone_ids = {")
+        print('     "example.com" = "zone_id_here"')
+        print("   }")
         return
+
+    cleanup_success = True
 
     for zone_name, zone_id in ZONE_IDS.items():
         print(f"\n📍 Zone: {zone_name} ({zone_id})")
 
-        # 獲取所有 ruleset
-        rulesets = get_zone_rulesets(zone_id)
-        if not rulesets:
-            print("  ✅ No rulesets found or unable to fetch rulesets")
+        try:
+            # 獲取所有 ruleset
+            rulesets = get_zone_rulesets(zone_id)
+            if not rulesets:
+                print("  ✅ No rulesets found or unable to fetch rulesets")
+                continue
+
+            # 找出所有需要清理的 ruleset
+            custom_firewall_rulesets = [
+                rs for rs in rulesets
+                if rs.get("phase") == "http_request_firewall_custom" and rs.get("kind") == "zone"
+            ]
+
+            if not custom_firewall_rulesets:
+                print("  ✅ No custom WAF rulesets found")
+                continue
+
+            print(f"  📋 Found {len(custom_firewall_rulesets)} custom WAF ruleset(s):")
+
+            # 刪除所有 http_request_firewall_custom 階段的 ruleset
+            for ruleset in custom_firewall_rulesets:
+                ruleset_name = ruleset.get('name', 'Unknown')
+                ruleset_id = ruleset.get('id')
+
+                # 嘗試刪除所有 custom firewall ruleset
+                print(f"    🗑️  Deleting: {ruleset_name}")
+                success = delete_ruleset(zone_id, ruleset_id, ruleset_name)
+                if not success:
+                    cleanup_success = False
+                    print(f"    ⚠️  Failed to delete {ruleset_name}, but continuing...")
+
+        except Exception as e:
+            print(f"  ❌ Error processing zone {zone_name}: {e}")
+            cleanup_success = False
             continue
 
-        # 找出所有需要清理的 ruleset
-        custom_firewall_rulesets = [
-            rs for rs in rulesets
-            if rs.get("phase") == "http_request_firewall_custom" and rs.get("kind") == "zone"
-        ]
-
-        if not custom_firewall_rulesets:
-            print("  ✅ No custom WAF rulesets found")
-            continue
-
-        print(f"  📋 Found {len(custom_firewall_rulesets)} custom WAF ruleset(s):")
-
-        # 刪除所有 http_request_firewall_custom 階段的 ruleset
-        for ruleset in custom_firewall_rulesets:
-            ruleset_name = ruleset.get('name', 'Unknown')
-            ruleset_id = ruleset.get('id')
-            
-            # 嘗試刪除所有 custom firewall ruleset，不再只針對特定名稱
-            print(f"    🗑️  Deleting: {ruleset_name}")
-            delete_ruleset(zone_id, ruleset_id, ruleset_name)
-
-    print("\n✅ Ruleset cleanup completed")
+    if cleanup_success:
+        print("\n✅ Ruleset cleanup completed successfully")
+    else:
+        print("\n⚠️ Ruleset cleanup completed with some errors")
+        print("   Terraform may encounter conflicts, but will attempt to proceed")
 
 def verify_api_tokens():
     """驗證 API Token 是否有效"""
@@ -273,14 +331,14 @@ def verify_api_tokens():
         print("Ruleset cleanup and deployment will be skipped")
     else:
         print("✅ CLOUDFLARE_API_TOKEN is set")
-        
+
         # 簡單測試 Cloudflare API Token
         for zone_name, zone_id in ZONE_IDS.items():
             headers = {
                 "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}",
                 "Content-Type": "application/json"
             }
-            
+
             url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}"
             try:
                 response = requests.get(url, headers=headers)
@@ -291,7 +349,7 @@ def verify_api_tokens():
                     print(f"     Response: {response.text[:200]}...")
             except Exception as e:
                 print(f"  ❌ Error testing Cloudflare API for zone {zone_name}: {e}")
-    
+
     # 驗證 AbuseIPDB API Key
     if not ABUSEIPDB_API_KEY:
         print("⚠️ Warning: ABUSEIPDB_API_KEY not set")
@@ -301,19 +359,19 @@ def verify_api_tokens():
 
 if __name__ == "__main__":
     print("🚀 Starting WAF ruleset update process...")
-    
+
     # 驗證 API Token
     verify_api_tokens()
-    
+
     # 首先清理現有的 ruleset
     cleanup_existing_rulesets()
 
     print("\n📊 Fetching AbuseIPDB ASN blacklist...")
     asns = fetch_abuseipdb_asns()
     print(f"✅ Fetched {len(asns)} unique ASNs.")
-    
+
     # 更新 rules.yaml
     update_rules_yaml(asns)
     print(f"📝 Updated {OUTPUT_FILE} successfully.")
-    
+
     print("\n✨ Process completed successfully!")
