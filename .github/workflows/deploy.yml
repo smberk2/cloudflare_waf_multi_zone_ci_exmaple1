@@ -5,6 +5,7 @@ on:
     - cron: '0 3 * * *'
   push:
     branches: [ "main" ]
+  workflow_dispatch:  # 允許手動觸發
 
 jobs:
   deploy-multi-zone:
@@ -16,7 +17,7 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install Python Dependencies
       run: pip install requests pyyaml
@@ -25,7 +26,7 @@ jobs:
       run: python update_abuseipdb_asns.py
 
     - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
+      uses: hashicorp/setup-terraform@v3
       with:
         terraform_version: 1.6.6
 
