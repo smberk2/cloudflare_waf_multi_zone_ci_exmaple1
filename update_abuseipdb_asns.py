@@ -189,72 +189,131 @@ def get_zone_rulesets(zone_id):
     }
 
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/rulesets"
-    response = requests.get(url, headers=headers)
-
-    if response.status_code != 200:
-        print(f"Error fetching rulesets for zone {zone_id}: {response.status_code}")
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # 會在 HTTP 錯誤時拋出異常
+        return response.json().get("result", [])
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching rulesets for zone {zone_id}: {e}")
         return []
 
-    return response.json().get("result", [])
-
-def delete_ruleset(zone_id, ruleset_id):
+def delete_ruleset(zone_id, ruleset_id, ruleset_name):
     """刪除指定的 ruleset"""
+    if not CLOUDFLARE_API_TOKEN:
+        print("Warning: CLOUDFLARE_API_TOKEN not found, skipping ruleset deletion")
+        return False
+        
     headers = {
         "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}",
         "Content-Type": "application/json"
     }
 
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/rulesets/{ruleset_id}"
-    response = requests.delete(url, headers=headers)
-
-    if response.status_code in [200, 204]:
-        print(f"✅ Successfully deleted ruleset {ruleset_id}")
+    try:
+        print(f"    🗑️  Attempting to delete ruleset: {ruleset_name} (ID: {ruleset_id})")
+        response = requests.delete(url, headers=headers)
+        response.raise_for_status()  # 會在 HTTP 錯誤時拋出異常
+        print(f"    ✅ Successfully deleted ruleset: {ruleset_name}")
         return True
-    else:
-        print(f"❌ Failed to delete ruleset {ruleset_id}: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"    ❌ Failed to delete ruleset {ruleset_name}: {e}")
         return False
 
 def cleanup_existing_rulesets():
-    """清理現有的 Terraform 管理的 ruleset"""
+    """清理現有的 ruleset，確保沒有衝突"""
     if not CLOUDFLARE_API_TOKEN:
         print("Skipping ruleset cleanup - no Cloudflare API token")
         return
 
-    print("🔍 Cleaning up existing rulesets...")
+    print("\n🔍 Cleaning up existing rulesets to prevent conflicts...")
+
+    # 檢查是否有提供 zone_ids
+    if not ZONE_IDS:
+        print("❌ No zone IDs provided in ZONE_IDS dictionary")
+        print("Please update the ZONE_IDS variable in the script")
+        return
 
     for zone_name, zone_id in ZONE_IDS.items():
         print(f"\n📍 Zone: {zone_name} ({zone_id})")
 
+        # 獲取所有 ruleset
         rulesets = get_zone_rulesets(zone_id)
+        if not rulesets:
+            print("  ✅ No rulesets found or unable to fetch rulesets")
+            continue
 
-        # 過濾出 http_request_firewall_custom 階段的 ruleset
-        custom_rulesets = [
+        # 找出所有需要清理的 ruleset
+        custom_firewall_rulesets = [
             rs for rs in rulesets
             if rs.get("phase") == "http_request_firewall_custom" and rs.get("kind") == "zone"
         ]
 
-        if not custom_rulesets:
+        if not custom_firewall_rulesets:
             print("  ✅ No custom WAF rulesets found")
             continue
 
-        print(f"  📋 Found {len(custom_rulesets)} custom WAF ruleset(s):")
+        print(f"  📋 Found {len(custom_firewall_rulesets)} custom WAF ruleset(s):")
 
-        for ruleset in custom_rulesets:
-            print(f"    - {ruleset['name']} (ID: {ruleset['id']})")
+        # 刪除所有 http_request_firewall_custom 階段的 ruleset
+        for ruleset in custom_firewall_rulesets:
+            ruleset_name = ruleset.get('name', 'Unknown')
+            ruleset_id = ruleset.get('id')
+            
+            # 嘗試刪除所有 custom firewall ruleset，不再只針對特定名稱
+            print(f"    🗑️  Deleting: {ruleset_name}")
+            delete_ruleset(zone_id, ruleset_id, ruleset_name)
 
-            # 如果是 Terraform 管理的 ruleset，則刪除
-            if any(keyword in ruleset['name'].lower() for keyword in ['terraform', 'waf', 'managed']):
-                print(f"    🗑️  Deleting: {ruleset['name']}")
-                delete_ruleset(zone_id, ruleset['id'])
-            else:
-                print(f"    ⚠️  Skipping: {ruleset['name']} (not managed by Terraform)")
+    print("\n✅ Ruleset cleanup completed")
+
+def verify_api_tokens():
+    """驗證 API Token 是否有效"""
+    # 驗證 Cloudflare API Token
+    if not CLOUDFLARE_API_TOKEN:
+        print("⚠️ Warning: CLOUDFLARE_API_TOKEN not set")
+        print("Ruleset cleanup and deployment will be skipped")
+    else:
+        print("✅ CLOUDFLARE_API_TOKEN is set")
+        
+        # 簡單測試 Cloudflare API Token
+        for zone_name, zone_id in ZONE_IDS.items():
+            headers = {
+                "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}",
+                "Content-Type": "application/json"
+            }
+            
+            url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}"
+            try:
+                response = requests.get(url, headers=headers)
+                if response.status_code == 200:
+                    print(f"  ✅ Successfully verified access to zone: {zone_name}")
+                else:
+                    print(f"  ❌ Failed to access zone {zone_name}: HTTP {response.status_code}")
+                    print(f"     Response: {response.text[:200]}...")
+            except Exception as e:
+                print(f"  ❌ Error testing Cloudflare API for zone {zone_name}: {e}")
+    
+    # 驗證 AbuseIPDB API Key
+    if not ABUSEIPDB_API_KEY:
+        print("⚠️ Warning: ABUSEIPDB_API_KEY not set")
+        print("Will use static ASN list instead")
+    else:
+        print("✅ ABUSEIPDB_API_KEY is set")
 
 if __name__ == "__main__":
+    print("🚀 Starting WAF ruleset update process...")
+    
+    # 驗證 API Token
+    verify_api_tokens()
+    
     # 首先清理現有的 ruleset
     cleanup_existing_rulesets()
 
-    print("\nFetching AbuseIPDB ASN blacklist...")
+    print("\n📊 Fetching AbuseIPDB ASN blacklist...")
     asns = fetch_abuseipdb_asns()
-    print(f"Fetched {len(asns)} unique ASNs.")
+    print(f"✅ Fetched {len(asns)} unique ASNs.")
+    
+    # 更新 rules.yaml
     update_rules_yaml(asns)
-    print(f"Updated {OUTPUT_FILE} successfully.")
+    print(f"📝 Updated {OUTPUT_FILE} successfully.")
+    
+    print("\n✨ Process completed successfully!")
