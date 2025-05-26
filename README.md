@@ -19,10 +19,11 @@
 
 ### 3. 修改 terraform.tfvars
 
-編輯 `terraform.tfvars` 文件，填入您的 Cloudflare Zone ID：
+編輯 `terraform.tfvars` 文件，**只**填入您的 Cloudflare Zone ID：
 
 ```
-cloudflare_api_token = ""  # 留空，將通過 GitHub Secrets 提供
+# cloudflare_api_token 通過環境變數 TF_VAR_cloudflare_api_token 從 GitHub Secrets 傳入
+# 不要在此文件中設置 API token，以提高安全性
 
 zone_ids = {
   "example.com" = "your_zone_id_1"
@@ -30,7 +31,10 @@ zone_ids = {
 }
 ```
 
-您可以在 Cloudflare 儀表板的網站概述頁面底部找到 Zone ID。
+**重要安全提醒**：
+- ❌ **不要**在 `terraform.tfvars` 中設置 `cloudflare_api_token`
+- ✅ API Token 會自動從 GitHub Secrets 中的 `CLOUDFLARE_API_TOKEN` 通過環境變數 `TF_VAR_cloudflare_api_token` 傳入
+- 您可以在 Cloudflare 儀表板的網站概述頁面底部找到 Zone ID
 
 ### 4. 提交更改
 
@@ -108,6 +112,26 @@ Cloudflare 使用特定的表達式語法來定義規則。詳細語法請參考
 1. Cloudflare API Token 是否有正確的權限
 2. Zone ID 是否正確
 3. GitHub Actions 日誌中的錯誤信息
+
+## 安全最佳實踐
+
+### API Token 安全
+- ✅ **正確做法**：將 Cloudflare API Token 存儲在 GitHub Secrets 中
+- ✅ **正確做法**：通過環境變數 `TF_VAR_cloudflare_api_token` 傳遞給 Terraform
+- ❌ **錯誤做法**：在 `terraform.tfvars` 或任何代碼文件中硬編碼 API Token
+- ❌ **錯誤做法**：將包含 API Token 的文件提交到版本控制
+
+### Zone ID 安全
+- ✅ Zone ID 不是敏感信息，可以安全地存儲在 `terraform.tfvars` 中
+- ✅ Zone ID 可以提交到版本控制
+
+### 本地開發
+如果需要在本地運行 Terraform：
+```bash
+export TF_VAR_cloudflare_api_token="your_api_token_here"
+terraform plan
+terraform apply
+```
 
 ## 注意事項
 

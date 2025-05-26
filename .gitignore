@@ -3,6 +3,9 @@
 *.tfstate.*
 .terraform/
 .terraform.lock.hcl
+# 如果有包含敏感信息的 tfvars 文件，請取消下面的註釋
+# terraform.tfvars.local
+# *.auto.tfvars
 
 # Python
 __pycache__/
