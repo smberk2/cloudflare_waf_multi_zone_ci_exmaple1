@@ -17,7 +17,7 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
     - name: Install Python Dependencies
       run: pip install requests pyyaml
@@ -26,7 +26,7 @@ jobs:
       run: python update_abuseipdb_asns.py
 
     - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
+      uses: hashicorp/setup-terraform@v2
       with:
         terraform_version: 1.6.6
 
