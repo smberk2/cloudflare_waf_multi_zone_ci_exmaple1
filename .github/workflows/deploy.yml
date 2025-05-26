@@ -1,0 +1,36 @@
+name: Auto Update WAF for Multiple Zones
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy-multi-zone:
+    runs-on: ubuntu-latest
+
+    env:
+      ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY }}
+      TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Install Python Dependencies
+      run: pip install requests pyyaml
+
+    - name: Update ASN Rules from AbuseIPDB
+      run: python update_abuseipdb_asns.py
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.6.6
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Apply
+      run: terraform apply -auto-approve

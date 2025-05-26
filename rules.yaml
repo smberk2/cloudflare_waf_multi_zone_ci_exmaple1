@@ -1,0 +1,16 @@
+rules:
+- action: skip
+  expression: (cf.client.bot) or (http.user_agent contains "UptimeRobot")
+  name: Allow Known Bots
+  products:
+  - waf
+  - bic
+  - rateLimit
+- action: managed_challenge
+  expression: not ip.geoip.country in {"CN" "HK" "TW" "MO"}
+  name: Challenge Overseas Traffic
+- action: block
+  expression: (ip.geoip.asnum in {197695 49505 201776 202425 49392 44812 202422 49981
+    60068 44901 51167 200000 208091 202448 63949 16276 24940 45090 37963 20473 14061
+    9009 35913 31034 8100 46844 40676 53667 209605 212238 29802 48693})
+  name: Block Known Bad ASNs (AbuseIPDB)
