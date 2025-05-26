@@ -53,7 +53,53 @@ WAF 規則將按照以下方式自動更新：
 
 ## 自定義規則
 
-如果您想自定義 WAF 規則，可以編輯 `rules.yaml` 文件。
+如果您想添加或修改 WAF 規則，請編輯 `rules.yaml` 文件。該文件遵循以下格式：
+
+```yaml
+rules:
+- action: skip|block|managed_challenge|js_challenge|...
+  expression: <Cloudflare 過濾表達式>
+  name: <規則名稱>
+  products:  # 僅當 action 為 skip 時需要
+  - waf
+  - bic
+  - rateLimit
+```
+
+### 規則示例
+
+1. **阻擋特定國家的流量**:
+```yaml
+- action: block
+  expression: ip.geoip.country in {"RU" "IR" "KP"}
+  name: Block High Risk Countries
+```
+
+2. **對可疑用戶代理發起挑戰**:
+```yaml
+- action: managed_challenge
+  expression: http.user_agent contains "suspicious-string"
+  name: Challenge Suspicious User Agents
+```
+
+3. **阻擋特定 IP 範圍**:
+```yaml
+- action: block
+  expression: ip.src in {192.0.2.0/24 198.51.100.0/24}
+  name: Block Specific IP Ranges
+```
+
+### 規則優先順序
+
+規則按照在 `rules.yaml` 文件中的順序執行，靠前的規則優先級更高。
+
+### 測試您的規則
+
+添加新規則後，建議先在單個網站上測試，確認規則按預期工作後再應用到所有網站。
+
+### Cloudflare 表達式語法
+
+Cloudflare 使用特定的表達式語法來定義規則。詳細語法請參考 [Cloudflare 過濾表達式文檔](https://developers.cloudflare.com/ruleset-engine/rules-language/expressions/)。
 
 ## 故障排除
 
