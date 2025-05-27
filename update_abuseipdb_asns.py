@@ -139,9 +139,10 @@ def fetch_abuseipdb_asns():
             if "data" in data and len(data["data"]) > 0:
                 print(f"📊 Received {len(data['data'])} entries from AbuseIPDB")
 
-                # 嘗試從 IP 數據中提取國家和 ISP 信息來推斷高風險 ASN
-                # 由於 API 不直接提供 ASN，我們分析地理分布
+                # 分析 AbuseIPDB 數據中的國家分布
+                print("🔍 Analyzing AbuseIPDB threat intelligence...")
                 country_stats = {}
+
                 for entry in data["data"]:
                     country = entry.get("countryCode", "Unknown")
                     country_stats[country] = country_stats.get(country, 0) + 1
@@ -151,17 +152,88 @@ def fetch_abuseipdb_asns():
                 for country, count in sorted_countries:
                     print(f"   {country}: {count} IPs")
 
-                # 基於當前威脅情報，結合靜態列表
+                # 基於威脅情報動態調整 ASN 列表
                 print("🔄 Combining AbuseIPDB intelligence with curated ASN list...")
                 static_asns = get_known_bad_asns()
+
+                # 根據當前威脅情報添加額外的高風險 ASN（只添加已知的惡意/可疑 ASN）
+                additional_asns = []
+
+                # 如果美國在威脅列表前列，添加更多美國的可疑託管商 ASN
+                if "US" in [c[0] for c in sorted_countries[:3]]:
+                    additional_asns.extend([
+                        35913,   # DediPath (已在靜態列表中)
+                        40676,   # Psychz Networks (已在靜態列表中)
+                        53667,   # FranTech Solutions (已在靜態列表中)
+                        19531,   # Psychz Networks
+                        46562,   # Total Server Solutions L.L.C.
+                        62904,   # Eonix Corporation
+                        26496,   # AS-26496-GO-DADDY-COM-LLC
+                    ])
+
+                # 如果中國在威脅列表前列，添加更多中國的可疑 ASN（避免主要 ISP）
+                if "CN" in [c[0] for c in sorted_countries[:3]]:
+                    additional_asns.extend([
+                        45090,   # Shenzhen Tencent (已在靜態列表中)
+                        37963,   # Hangzhou Alibaba (已在靜態列表中)
+                        55990,   # Hwclouds-as-ap Huawei International
+                        132203,  # Tencent Building, Kejizhongyi Avenue
+                        38365,   # Beijing Baidu Netcom Science and Technology Co., Ltd.
+                    ])
+
+                # 如果荷蘭在威脅列表前列，添加更多荷蘭的可疑託管商 ASN
+                if "NL" in [c[0] for c in sorted_countries[:3]]:
+                    additional_asns.extend([
+                        49981,   # WorldStream B.V. (已在靜態列表中)
+                        212238,  # Datacamp Limited (已在靜態列表中)
+                        60781,   # LeaseWeb Netherlands B.V.
+                        16265,   # LeaseWeb Netherlands B.V.
+                        60404,   # Liteserver Holding B.V.
+                        206264,  # Amarutu Technology Ltd
+                    ])
+
+                # 如果德國在威脅列表前列，添加更多德國的可疑託管商 ASN
+                if "DE" in [c[0] for c in sorted_countries[:3]]:
+                    additional_asns.extend([
+                        24940,   # Hetzner Online GmbH (已在靜態列表中)
+                        51167,   # Contabo GmbH (已在靜態列表中)
+                        197540,  # netcup GmbH
+                        61317,   # Digital Energy Technologies Chile SpA
+                        48314,   # Michael Sebastian Schinzel trading as IP-Projects GmbH & Co. KG
+                    ])
+
+                # 如果俄羅斯相關威脅增加，添加更多俄羅斯 ASN
+                if "RU" in [c[0] for c in sorted_countries[:3]]:
+                    additional_asns.extend([
+                        197695,  # REG.RU (已在靜態列表中)
+                        49505,   # Selectel (已在靜態列表中)
+                        201776,  # Miranda-Media Ltd (已在靜態列表中)
+                        25513,   # Moscow Local Telephone Network (OAO MGTS)
+                        31133,   # PJSC MegaFon
+                        42610,   # Rostelecom networks
+                    ])
+
+                # 合併所有 ASN 並去重
+                all_asns = list(set(static_asns + additional_asns))
+
+                print(f"📊 Static ASN list: {len(static_asns)} ASNs")
+                print(f"📊 Threat-based additional ASNs: {len(set(additional_asns))} ASNs")
+                print(f"📊 Combined unique ASNs: {len(all_asns)} ASNs")
 
                 # 如果俄羅斯、中國等高風險國家在前列，優先使用相關 ASN
                 high_risk_countries = ["RU", "CN", "KP", "IR"]
                 if any(country in [c[0] for c in sorted_countries[:5]] for country in high_risk_countries):
                     print("⚠️  High-risk countries detected in current threats, prioritizing related ASNs")
 
-                selected_asns = static_asns[:MAX_ASNS]
+                # 使用前 MAX_ASNS 個 ASN
+                selected_asns = all_asns[:MAX_ASNS]
                 print(f"✅ Using {len(selected_asns)} ASNs based on AbuseIPDB intelligence + static list")
+
+                if additional_asns:
+                    new_asns = [asn for asn in additional_asns if asn not in static_asns]
+                    if new_asns:
+                        print(f"🆕 New threat-based ASNs added: {sorted(list(set(new_asns)))}")
+
                 return selected_asns
             else:
                 print("⚠️  AbuseIPDB returned empty data, falling back to static list")
