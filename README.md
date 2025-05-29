@@ -1,29 +1,31 @@
-# Cloudflare WAF 自動更新工具
+[中文版本](./README_zh-CN.md)
 
-這個工具可以自動從 AbuseIPDB 獲取惡意 ASN 列表並更新到 Cloudflare WAF 規則中，保護您的網站免受惡意流量的侵害。
+# Cloudflare WAF Auto Update Tool
 
-## 使用方法
+This tool automatically fetches a list of malicious ASNs from AbuseIPDB and updates your Cloudflare WAF rules to protect your website from malicious traffic.
 
-### 1. Fork 這個儲存庫
+## Usage
 
-點擊右上角的 Fork 按鈕，將此儲存庫複製到您的 GitHub 帳戶。
+### 1. Fork this repository
 
-### 2. 設定 GitHub Secrets
+Click the Fork button in the top right corner to copy this repository to your GitHub account.
 
-在您 fork 的儲存庫中，前往 Settings > Secrets and variables > Actions，添加以下兩個 secrets：
+### 2. Set up GitHub Secrets
 
-| 名稱                    | 值                                                  |
-| ---------------------- | -------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（需要 Zone:Edit 和 Zone:Read 權限） |
-| `ABUSEIPDB_API_KEY`    | 您的 AbuseIPDB API 金鑰                               |
+In your forked repository, go to Settings > Secrets and variables > Actions, and add the following two secrets:
 
-### 3. 修改 terraform.tfvars
+| Name                    | Value                                                     |
+| ---------------------- | -------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token (requires Zone:Edit and Zone:Read permissions) |
+| `ABUSEIPDB_API_KEY`    | Your AbuseIPDB API Key                                    |
 
-編輯 `terraform.tfvars` 文件，**只**填入您的 Cloudflare Zone ID：
+### 3. Modify terraform.tfvars
+
+Edit the `terraform.tfvars` file and **only** fill in your Cloudflare Zone ID:
 
 ```
-# cloudflare_api_token 通過環境變數 TF_VAR_cloudflare_api_token 從 GitHub Secrets 傳入
-# 不要在此文件中設置 API token，以提高安全性
+# cloudflare_api_token is passed via environment variable TF_VAR_cloudflare_api_token from GitHub Secrets
+# Do not set the API token in this file for improved security
 
 zone_ids = {
   "example.com" = "your_zone_id_1"
@@ -31,12 +33,12 @@ zone_ids = {
 }
 ```
 
-**重要安全提醒**：
-- ❌ **不要**在 `terraform.tfvars` 中設置 `cloudflare_api_token`
-- ✅ API Token 會自動從 GitHub Secrets 中的 `CLOUDFLARE_API_TOKEN` 通過環境變數 `TF_VAR_cloudflare_api_token` 傳入
-- 您可以在 Cloudflare 儀表板的網站概述頁面底部找到 Zone ID
+**Important Security Note**:
+- ❌ **Do not** set `cloudflare_api_token` in `terraform.tfvars`
+- ✅ The API Token will be automatically passed from `CLOUDFLARE_API_TOKEN` in GitHub Secrets via the environment variable `TF_VAR_cloudflare_api_token`
+- You can find the Zone ID at the bottom of your website's overview page in the Cloudflare dashboard.
 
-### 4. 提交更改
+### 4. Commit Changes
 
 ```bash
 git add terraform.tfvars
@@ -44,96 +46,96 @@ git commit -m "Update zone IDs"
 git push origin main
 ```
 
-### 5. 查看 GitHub Actions
+### 5. View GitHub Actions
 
-提交後，GitHub Actions 將自動運行並部署 WAF 規則。您可以在儲存庫的 Actions 標籤中查看進度。
+After committing, GitHub Actions will automatically run and deploy the WAF rules. You can view the progress in the Actions tab of your repository.
 
-## 自動更新
+## Automatic Updates
 
-WAF 規則將按照以下方式自動更新：
+The WAF rules will be updated automatically in the following ways:
 
-- 每當您推送到 main 分支時
-- 每天凌晨 3 點（UTC）通過排程任務
+- Whenever you push to the main branch
+- Daily at 3:00 AM (UTC) via a scheduled task
 
-## 自定義規則
+## Custom Rules
 
-如果您想添加或修改 WAF 規則，請編輯 `rules.yaml` 文件。該文件遵循以下格式：
+If you want to add or modify WAF rules, edit the `rules.yaml` file. The file follows the format below:
 
 ```yaml
 rules:
 - action: skip|block|managed_challenge|js_challenge|...
-  expression: <Cloudflare 過濾表達式>
-  name: <規則名稱>
-  products:  # 僅當 action 為 skip 時需要
+  expression: <Cloudflare Filter Expression>
+  name: <Rule Name>
+  products:  # Required only if action is skip
   - waf
   - bic
   - rateLimit
 ```
 
-### 規則示例
+### Rule Examples
 
-1. **阻擋特定國家的流量**:
+1. **Block traffic from specific countries**:
 ```yaml
 - action: block
   expression: ip.geoip.country in {"RU" "IR" "KP"}
   name: Block High Risk Countries
 ```
 
-2. **對可疑用戶代理發起挑戰**:
+2. **Challenge suspicious user agents**:
 ```yaml
 - action: managed_challenge
   expression: http.user_agent contains "suspicious-string"
   name: Challenge Suspicious User Agents
 ```
 
-3. **阻擋特定 IP 範圍**:
+3. **Block specific IP ranges**:
 ```yaml
 - action: block
   expression: ip.src in {192.0.2.0/24 198.51.100.0/24}
   name: Block Specific IP Ranges
 ```
 
-### 規則優先順序
+### Rule Priority
 
-規則按照在 `rules.yaml` 文件中的順序執行，靠前的規則優先級更高。
+Rules are executed in the order they appear in the `rules.yaml` file. Rules listed earlier have higher priority.
 
-### 測試您的規則
+### Test Your Rules
 
-添加新規則後，建議先在單個網站上測試，確認規則按預期工作後再應用到所有網站。
+After adding new rules, it is recommended to test them on a single website first to confirm they work as expected before applying them to all websites.
 
-### Cloudflare 表達式語法
+### Cloudflare Expression Syntax
 
-Cloudflare 使用特定的表達式語法來定義規則。詳細語法請參考 [Cloudflare 過濾表達式文檔](https://developers.cloudflare.com/ruleset-engine/rules-language/expressions/)。
+Cloudflare uses a specific expression syntax to define rules. For detailed syntax, refer to the [Cloudflare Filter Expressions documentation](https://developers.cloudflare.com/ruleset-engine/rules-language/expressions/).
 
-## 故障排除
+## Troubleshooting
 
-如果遇到問題，請檢查：
+If you encounter issues, check:
 
-1. Cloudflare API Token 是否有正確的權限
-2. Zone ID 是否正確
-3. GitHub Actions 日誌中的錯誤信息
+1. Whether the Cloudflare API Token has the correct permissions
+2. Whether the Zone ID is correct
+3. Error messages in the GitHub Actions logs
 
-## 安全最佳實踐
+## Security Best Practices
 
-### API Token 安全
-- ✅ **正確做法**：將 Cloudflare API Token 存儲在 GitHub Secrets 中
-- ✅ **正確做法**：通過環境變數 `TF_VAR_cloudflare_api_token` 傳遞給 Terraform
-- ❌ **錯誤做法**：在 `terraform.tfvars` 或任何代碼文件中硬編碼 API Token
-- ❌ **錯誤做法**：將包含 API Token 的文件提交到版本控制
+### API Token Security
+- ✅ **Correct**: Store the Cloudflare API Token in GitHub Secrets
+- ✅ **Correct**: Pass it to Terraform via the environment variable `TF_VAR_cloudflare_api_token`
+- ❌ **Incorrect**: Hardcode the API Token in `terraform.tfvars` or any code file
+- ❌ **Incorrect**: Commit files containing the API Token to version control
 
-### Zone ID 安全
-- ✅ Zone ID 不是敏感信息，可以安全地存儲在 `terraform.tfvars` 中
-- ✅ Zone ID 可以提交到版本控制
+### Zone ID Security
+- ✅ Zone ID is not sensitive information and can be safely stored in `terraform.tfvars`
+- ✅ Zone ID can be committed to version control
 
-### 本地開發
-如果需要在本地運行 Terraform：
+### Local Development
+If you need to run Terraform locally:
 ```bash
 export TF_VAR_cloudflare_api_token="your_api_token_here"
 terraform plan
 terraform apply
 ```
 
-## 注意事項
+## Notes
 
-- 此工具會刪除並重新創建名稱包含 "Terraform"、"WAF" 或 "managed" 的現有 WAF 規則集
-- 請確保您了解所應用的規則對您網站的影響
+- This tool will delete and recreate existing WAF rulesets whose names contain "Terraform", "WAF", or "managed".
+- Please ensure you understand the impact of the rules you apply on your website.
