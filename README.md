@@ -2,7 +2,16 @@
 
 # Cloudflare WAF Auto Update Tool
 
-This tool automatically fetches a list of malicious ASNs from AbuseIPDB and updates your Cloudflare WAF rules to protect your website from malicious traffic.
+This tool automatically fetches a list of malicious ASNs from AbuseIPDB and updates your Cloudflare WAF rules to protect your website from malicious traffic while allowing legitimate security scanners and monitoring services.
+
+## 🚀 Key Features
+
+- **Smart Protection**: Blocks malicious traffic while allowing legitimate services
+- **SEO Friendly**: Supports all major search engines and social media crawlers
+- **Security Scanner Support**: Allows legitimate security scanners (Expanse, Shodan, Censys, etc.)
+- **Monitoring Service Support**: Compatible with uptime monitoring and performance testing tools
+- **Automatic Updates**: Daily updates from AbuseIPDB threat intelligence
+- **Multi-Zone Support**: Manage multiple Cloudflare zones from a single repository
 
 ## Usage
 
@@ -57,6 +66,34 @@ The WAF rules will be updated automatically in the following ways:
 - Whenever you push to the main branch
 - Daily at 3:00 AM (UTC) via a scheduled task
 
+## 🛡️ Built-in Rule Categories
+
+The WAF rules are organized into three priority levels:
+
+### 1. **Allow Legitimate Security & Monitoring Services** (Highest Priority)
+- **Expanse (Palo Alto Networks)** - Network asset discovery
+- **Shodan, Censys** - Internet-wide scanning services
+- **Monitoring Services** - UptimeRobot, Pingdom, StatusCake, Site24x7
+- **Performance Testing** - GTmetrix, PageSpeed Insights, Lighthouse, WebPageTest
+
+### 2. **Allow Known Bots & Crawlers** (Second Priority)
+- **Search Engines** - Google, Bing, Yahoo, DuckDuckGo, Baidu, Yandex
+- **Social Media** - Facebook, Twitter, LinkedIn, WhatsApp, Discord, Telegram
+- **Other Services** - Apple Bot, Internet Archive
+
+### 3. **Block Malicious User-Agents** (Third Priority)
+- Attack tools (nmap, sqlmap, nikto, etc.)
+- Automated scanners and vulnerability tools
+- Suspicious or empty user agents
+
+### 4. **Block Exploit Path Probes**
+- Common attack paths (/.git, /.env, /wp-admin, etc.)
+- Configuration files and sensitive directories
+
+### 5. **Geographic and ASN Filtering**
+- Challenge overseas traffic (configurable)
+- Block known malicious ASNs from AbuseIPDB
+
 ## Custom Rules
 
 If you want to add or modify WAF rules, edit the `rules.yaml` file. The file follows the format below:
@@ -99,9 +136,29 @@ rules:
 
 Rules are executed in the order they appear in the `rules.yaml` file. Rules listed earlier have higher priority.
 
+**Important**: The current rule order is optimized to:
+1. First allow legitimate services (security scanners, monitoring tools)
+2. Then allow search engines and social media crawlers
+3. Finally block malicious traffic and attack tools
+
 ### Test Your Rules
 
 After adding new rules, it is recommended to test them on a single website first to confirm they work as expected before applying them to all websites.
+
+## 🔍 Monitoring and Analytics
+
+### Checking Rule Effectiveness
+You can monitor your WAF rules through:
+- **Cloudflare Dashboard** → Security → WAF → Custom rules
+- **Analytics** → Security → WAF events
+- **Logs** → HTTP requests (Enterprise plan)
+
+### Common Legitimate Services to Monitor
+If you notice these services being blocked, they should be added to the allow list:
+- Security scanners (Qualys, Rapid7, etc.)
+- SEO tools (Ahrefs, SEMrush, Moz, etc.)
+- Monitoring services (New Relic, Datadog, etc.)
+- Performance testing tools
 
 ### Cloudflare Expression Syntax
 
@@ -114,6 +171,23 @@ If you encounter issues, check:
 1. Whether the Cloudflare API Token has the correct permissions
 2. Whether the Zone ID is correct
 3. Error messages in the GitHub Actions logs
+
+### Common Issues
+
+**Legitimate services being blocked:**
+- Check if the service's user agent is in the allow list
+- Add the service to the first rule in `rules.yaml`
+- Monitor WAF events to identify blocked legitimate traffic
+
+**SEO impact concerns:**
+- All major search engines are whitelisted by default
+- Social media preview crawlers are supported
+- Performance testing tools are allowed
+
+**False positives:**
+- Review the WAF events in Cloudflare Dashboard
+- Adjust rules based on your specific needs
+- Consider using `managed_challenge` instead of `block` for borderline cases
 
 ## Security Best Practices
 
@@ -135,7 +209,20 @@ terraform plan
 terraform apply
 ```
 
-## Notes
+## 📋 Notes
 
 - This tool will delete and recreate existing WAF rulesets whose names contain "Terraform", "WAF", or "managed".
 - Please ensure you understand the impact of the rules you apply on your website.
+- The rules are optimized for balancing security and accessibility for legitimate services.
+- Regular monitoring of WAF events is recommended to fine-tune the rules.
+
+## 🤝 Contributing
+
+If you find legitimate services being blocked or have suggestions for improving the rules, please:
+1. Open an issue with details about the blocked service
+2. Include the user agent string and service purpose
+3. Submit a pull request with the proposed changes
+
+## 📄 License
+
+This project is open source and available under the [MIT License](LICENSE).
