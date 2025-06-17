@@ -1,0 +1,54 @@
+# 可選服務配置 - 根據需要添加到主規則中
+# Optional Services Configuration - Add to main rules as needed
+
+# 額外的監控服務 (Additional Monitoring Services)
+monitoring_services:
+  - "StatusCake"
+  - "Site24x7" 
+  - "GTmetrix"
+  - "PageSpeed Insights"
+  - "Lighthouse"
+  - "WebPageTest"
+  - "InternetMeasurement"
+
+# 額外的社交媒體平台 (Additional Social Media Platforms)
+social_media:
+  - "TelegramBot"
+  - "SkypeUriPreview"
+
+# 額外的安全研究服務 (Additional Security Research Services)
+security_research:
+  - "Rapid7"
+  - "Qualys"
+  - "Tenable"
+
+# 額外的 SEO 工具 (Additional SEO Tools)
+seo_tools:
+  - "AhrefsBot"
+  - "SemrushBot"
+  - "MJ12bot"
+  - "DotBot"
+
+# 使用說明 (Usage Instructions)
+# 如果您需要支持這些額外服務，請將相應的用戶代理字符串添加到 rules.yaml 中的
+# "Allow Essential Legitimate Services" 規則的 expression 中
+#
+# 例如，要添加 StatusCake 支持：
+# (http.user_agent contains "StatusCake") or
+#
+# 注意：添加過多服務可能增加安全風險，請只添加您實際需要的服務
+
+# 風險評估 (Risk Assessment)
+# 低風險：主要搜索引擎、知名社交媒體平台
+# 中風險：監控服務、性能測試工具
+# 高風險：通用工具（curl、wget 等）- 不建議添加到白名單
+
+# 建議的最小配置 (Recommended Minimal Configuration)
+# 已包含在主規則中：
+# - cf.client.bot (Cloudflare 已知機器人)
+# - Expanse (解決用戶問題)
+# - Shodan, Censys (合法安全掃描)
+# - UptimeRobot, Pingdom (主要監控服務)
+# - 主要搜索引擎 (Google, Bing, Yahoo, DuckDuckGo, Baidu, Yandex)
+# - 主要社交媒體 (Facebook, Twitter, LinkedIn, WhatsApp, Discord)
+# - Apple Bot, Internet Archive
