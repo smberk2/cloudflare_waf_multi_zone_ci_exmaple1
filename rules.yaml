@@ -15,8 +15,8 @@ rules:
   - bic
   - rateLimit
 
-# 第三優先級：拦截请求中包含的常见SQL注入、跨站脚本（XSS）和其他命令注入的攻击特征码。Block Common SQLi & XSS Patterns
-- action: block
+# 第三優先級：拦截请求中包含的常见SQL注入、跨站脚本（XSS）和其他命令注入的攻击特征码。Block Common SQLi & XSS Patterns。为防止误杀，action 从 block 改为 Managed Challenge 或 Log，先观察
+- action: managed_challenge
   expression: (lower(http.request.uri.query) contains "union" and lower(http.request.uri.query) contains "select") or (lower(http.request.uri.query) contains "select" and lower(http.request.uri.query) contains "from") or (lower(http.request.uri.query) contains "information_schema") or (lower(http.request.uri.query) contains "select" and lower(http.request.uri.query) contains "benchmark") or (lower(http.request.uri.query) contains "<script>") or (lower(http.request.uri.query) contains "javascript:") or (lower(http.request.uri.query) contains "onerror=") or (lower(http.request.uri.query) contains "../") or (lower(http.request.uri.query) contains "etc/passwd") or (lower(http.request.body.raw) contains "union" and lower(http.request.body.raw) contains "select") or (lower(http.request.body.raw) contains "select" and lower(http.request.body.raw) contains "from") or (lower(http.request.body.raw) contains "information_schema") or (lower(http.request.body.raw) contains "select" and lower(http.request.body.raw) contains "benchmark") or (lower(http.request.body.raw) contains "<script>") or (lower(http.request.body.raw) contains "javascript:") or (lower(http.request.body.raw) contains "onerror=") or (lower(http.request.body.raw) contains "../") or (lower(http.request.body.raw) contains "etc/passwd")
   name: 拦截SQL注入XSS和其他命令注入的攻击特征码
 
