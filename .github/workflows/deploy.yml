@@ -3,8 +3,8 @@ name: Auto Update WAF for Multiple Zones
 on:
   schedule:
     - cron: '0 3 * * *'
-  push:
-    branches: [ "main" ]
+  #push:
+   # branches: [ "main" ]
   workflow_dispatch:  # 允許手動觸發
 
 jobs:
