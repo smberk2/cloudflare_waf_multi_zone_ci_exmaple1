@@ -1,8 +1,8 @@
-variable "cloudflare_api_token" {
-  type        = string
-  sensitive   = true
-  description = "Cloudflare API Token with Zone:Edit and Zone:Read permissions"
-}
+#variable "cloudflare_api_token" {
+#  type        = string
+#  sensitive   = true
+#  description = "Cloudflare API Token with Zone:Edit and Zone:Read permissions"
+#}
 
 variable "zone_ids" {
   type        = map(string)
