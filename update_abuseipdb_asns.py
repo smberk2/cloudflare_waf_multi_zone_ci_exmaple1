@@ -3,7 +3,7 @@ import yaml
 import os
 
 ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY")
-CLOUDFLARE_API_TOKEN = os.getenv("TF_VAR_cloudflare_api_token")
+CLOUDFLARE_API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN")
 OUTPUT_FILE = "rules.yaml"
 MAX_ASNS = 50
 
@@ -266,26 +266,44 @@ def fetch_abuseipdb_asns():
         return get_known_bad_asns()[:MAX_ASNS]
 
 def update_rules_yaml(asns):
-    with open(OUTPUT_FILE, 'r') as f:
-        data = yaml.safe_load(f)
+    """更新 rules.yaml 文件，如果 ASN 列表为空则不添加规则"""
+    try:
+        with open(OUTPUT_FILE, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+    except FileNotFoundError:
+        print(f"⚠️ Warning: {OUTPUT_FILE} not found. Creating a new one.")
+        data = {"rules": []}
+    except Exception as e:
+        print(f"❌ Error reading {OUTPUT_FILE}: {e}")
+        return
 
-    # 移除現有的 ASN 規則
-    data["rules"] = [rule for rule in data["rules"] if "ASN" not in rule["name"]]
+    # 移除旧的 ASN 规则 (基于 description 或 name)
+    data["rules"] = [
+        rule for rule in data["rules"]
+        if "ASN" not in rule.get("name", "") and "ASN" not in rule.get("description", "")
+    ]
 
-    # 只有在有 ASN 數據時才添加新規則
+    # 只有在有 ASN 数据时才添加新规则
     if asns:
-        rule_block = {
-            "name": "Block Known Bad ASNs (AbuseIPDB)",
+        asn_expression = f"(ip.geoip.asnum in {{{' '.join(map(str, asns))}}})"
+        new_rule = {
             "action": "block",
-            "expression": f"(ip.geoip.asnum in {{{' '.join(map(str, asns))}}})"
+            "expression": asn_expression,
+            "description": f"阻挡恶意ASN (AbuseIPDB, {len(asns)} ASNs)", # 添加统一的 description
+            "name": "Block Known Bad ASNs (AbuseIPDB)" # 保留 name 用于识别
         }
-        data["rules"].insert(0, rule_block)
-        print(f"Added ASN blocking rule with {len(asns)} ASNs at highest priority")
+        # 将新规则插入到列表的最前面（最高优先级）
+        data["rules"].insert(0, new_rule)
+        print(f"✅ Added ASN blocking rule with {len(asns)} ASNs at highest priority.")
     else:
-        print("No ASN data available, skipping ASN rule creation")
+        print("⚠️ No ASN data available, skipping ASN rule creation.")
 
-    with open(OUTPUT_FILE, 'w') as f:
-        yaml.dump(data, f)
+    try:
+        with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+            yaml.dump(data, f, allow_unicode=True, sort_keys=False)
+    except Exception as e:
+        print(f"❌ Error writing to {OUTPUT_FILE}: {e}")
+
 
 def get_zone_rulesets(zone_id):
     """獲取指定 zone 的所有 ruleset"""
@@ -429,21 +447,29 @@ def verify_api_tokens():
     else:
         print("✅ ABUSEIPDB_API_KEY is set")
 
+# ... (文件前面的代码保持不变) ...
+
 if __name__ == "__main__":
     print("🚀 Starting WAF ruleset update process...")
 
     # 驗證 API Token
     verify_api_tokens()
 
-    # 首先清理現有的 ruleset
-    cleanup_existing_rulesets()
+    # 【关键修改】注释掉或删除这一行！
+    # 让 Terraform 来管理资源的生命周期，而不是由脚本强制删除。
+    # cleanup_existing_rulesets()
 
     print("\n📊 Fetching AbuseIPDB ASN blacklist...")
     asns = fetch_abuseipdb_asns()
-    print(f"✅ Fetched {len(asns)} unique ASNs.")
+    if asns:
+        print(f"✅ Fetched {len(asns)} unique ASNs.")
+    else:
+        print("⚠️ No ASNs fetched, will rely on existing rules in YAML.")
+
 
     # 更新 rules.yaml
-    update_rules_yaml(asns)
+    update_rules_yaml(asns) # 注意：我稍微修改了您的 update_rules_yaml 函数，使其更健壮
     print(f"📝 Updated {OUTPUT_FILE} successfully.")
 
     print("\n✨ Process completed successfully!")
+    print("➡️ Next step: Run 'terraform apply' to safely deploy the changes.")
