@@ -8,12 +8,13 @@ rules:
 
 # 第二優先級：允許核心合法服務（精簡版）Allow Essential Legitimate Services
 - action: skip
-  expression: (http.request.uri.query contains "auth_key=a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6") or (cf.client.bot) or (http.user_agent contains "Expanse, a Palo Alto Networks company") or (http.user_agent contains "Shodan") or (http.user_agent contains "Censys") or (http.user_agent contains "UptimeRobot") or (http.user_agent contains "Pingdom") or (http.user_agent contains "Googlebot") or (http.user_agent contains "Bingbot") or (http.user_agent contains "Slurp") or (http.user_agent contains "DuckDuckBot") or (http.user_agent contains "Baiduspider") or (http.user_agent contains "YandexBot") or (http.user_agent contains "facebookexternalhit") or (http.user_agent contains "Twitterbot") or (http.user_agent contains "LinkedInBot") or (http.user_agent contains "WhatsApp") or (http.user_agent contains "Discordbot") or (http.user_agent contains "AppleBot") or (http.user_agent contains "ia_archiver")
+  expression: ((http.request.uri.query contains "auth_key=a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6") or (cf.client.bot) or (http.user_agent contains "UptimeRobot") or (http.user_agent contains "Pingdom")) and (ip.geoip.country in {"CN" "HK"})
   name: 允许核心合法服务
-  products:
-  - waf
-  - bic
-  - rateLimit
+  action_parameters:
+    ruleset: "current"
+    products:
+      - bic
+      - uaBlock
 
 # 第三優先級：拦截请求中包含的常见SQL注入、跨站脚本（XSS）和其他命令注入的攻击特征码。Block Common SQLi & XSS Patterns。为防止误杀，action 从 block 改为 Managed Challenge 或 Log，先观察
 - action: managed_challenge
