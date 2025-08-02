@@ -8,4 +8,5 @@ zone_ids = {
   "luckyweek.dpdns.org"   = "d6ab7e247130510e335e63b65aa884cb"
   "luckyyear.dpdns.org"   = "909b22241266e9d6a2a81ecc2246e36e"
   "pink.ip-ddns.com"   = "119bd886e49120c7d54028f6a3667204"
+  "228998.xyz"   = "ca905515a9be68d1f653f54d9fef176e"
 }
