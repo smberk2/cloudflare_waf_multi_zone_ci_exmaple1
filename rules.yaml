@@ -17,7 +17,7 @@ rules:
     products:
     - bic
     - uaBlock
-- action: managed_challenge
+- action: block
   expression: (lower(http.request.uri.query) contains "union" and lower(http.request.uri.query)
     contains "select") or (lower(http.request.uri.query) contains "select" and lower(http.request.uri.query)
     contains "from") or (lower(http.request.uri.query) contains "information_schema")
