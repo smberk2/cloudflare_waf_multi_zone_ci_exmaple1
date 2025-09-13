@@ -7,9 +7,9 @@ rules:
   description: 阻挡恶意ASN (AbuseIPDB, 43 ASNs)
   name: Block Known Bad ASNs (AbuseIPDB)
 - action: skip
-  expression: ((http.request.uri.query contains "auth_key=a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6")
+  expression: ((http.request.uri.query contains "auth_key=a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6") or (http.request.uri.path contains "f4727be0-3d86-4079-a7a2-af4f23379707")
     or (cf.client.bot) or (http.user_agent contains "UptimeRobot") or (http.user_agent
-    contains "Pingdom")) and (ip.geoip.country in {"CN" "HK"})
+    contains "Pingdom")) and (ip.geoip.country in {"CN" "HK" "SG"})
   description: 允许核心合法服务
   name: Allow Essential Legitimate Services
   action_parameters:
