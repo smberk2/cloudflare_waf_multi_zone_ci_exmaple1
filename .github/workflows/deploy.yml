@@ -71,7 +71,18 @@ jobs:
         # 【删除】不再需要 mkdir，因为我们使用根目录
         terraform init
         terraform validate
-
+        
+  # -------------------------------------------------------------------
+    # 【临时修复步骤】从状态文件中移除已删除的资源
+    #  注意：此步骤成功运行一次后，就应该从 workflow 文件中删除！
+    # -------------------------------------------------------------------
+    - name: Fix State by Removing Stale Resource
+      id: state_rm
+      run: |
+        # 我们尝试移除资源。如果资源已经不存在于 state 中，命令会失败，
+        # 但 `|| true` 会确保这一步不会让整个 workflow 失败。
+        terraform state rm 'cloudflare_ruleset.waf_ruleset["20241108.xyz"]' || true
+      
     # 9. Terraform 部署
     - name: Terraform Apply
       run: terraform apply -auto-approve
