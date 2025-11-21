@@ -1,6 +1,6 @@
 # 路径：.github/workflows/your-workflow-file.yml
 
-name: Auto Update and Deploy Cloudflare WAF Rules
+name: Terraform Cloud
 
 on:
   schedule:
