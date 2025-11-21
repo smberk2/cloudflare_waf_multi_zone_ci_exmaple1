@@ -122,16 +122,11 @@ jobs:
       - name: 7. Terraform Init
         run: terraform init
 
-      # (可选维护步骤) 如果 Terraform 状态中存在一个已在 Cloudflare 删除的资源的记录，
-      # 这个命令会从状态文件中移除它，以避免后续 `apply` 出错。
-      # `|| true` 确保在资源不存在时命令不会失败。
-      - name: 8. Remove Stale Resource from State (if it exists)
-        run: terraform state rm 'cloudflare_ruleset.waf_ruleset["20241108.xyz"]' || true
 
       # 执行部署。
       # 因为我们在 Terraform Cloud 工作区中设置了 "Local Execution" 模式，
       # 所以 plan 和 apply 的所有计算和 API 调用都在这个 GitHub Actions runner 上执行。
       # Cloudflare Provider 会自动读取顶层定义的 `CLOUDFLARE_API_TOKEN` 环境变量来完成认证。
       # `-auto-approve` 参数会自动确认应用变更，无需人工交互。
-      - name: 9. Terraform Apply
+      - name: 8. Terraform Apply
         run: terraform apply -auto-approve
