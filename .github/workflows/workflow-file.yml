@@ -68,14 +68,19 @@ jobs:
 
 
 
-      # 步骤 4: 设置 Terraform
+      # 步骤 4: 设置 Terraform (不变)
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
-
-      # 步骤 5: Terraform 初始化
-      # 它会自动读取 backend.tf 并连接到 Terraform Cloud
+      # ===================================================================
+      # 新增步骤：手动配置 Terraform Cloud 凭证
+      # 这是解决你当前问题的关键！
+      # ===================================================================
+      - name: Configure Terraform Cloud Credentials
+        run: |
+          echo 'credentials "app.terraform.io" { token = "${{ secrets.TF_API_TOKEN }}" }' > ~/.terraformrc
+      # 步骤 5: Terraform 初始化 (现在它能找到凭证了)
       - name: Terraform Init
         run: terraform init
 
