@@ -36,30 +36,35 @@ jobs:
       - name: Update ASN Rules from AbuseIPDB
         run: python update_abuseipdb_asns.py
 
-      # 步骤 3: 拉取、提交并推送规则变更 (修正版)
-      - name: Pull, Commit and Push if rules.yaml changed
+      # 步骤 3: 提交并推送规则变更 (修正版)
+      - name: Commit and Push if rules.yaml changed
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # 首先，检查本地文件是否有变化，避免不必要的 git 操作
-          # 我们通过 git status 来判断 rules.yaml 是否被修改
-          if ! git status --porcelain | grep -q "rules.yaml"; then
+          # 检查 rules.yaml 是否真的被修改了。如果没有，就直接退出，避免空提交。
+          # 'git status --porcelain' 会在有修改时输出文件名，否则为空。
+          if [[ -z $(git status --porcelain rules.yaml) ]]; then
             echo "No changes to WAF rules. Skipping commit."
             exit 0
           fi
 
-          # 1. 先拉取远程的最新更改
-          git pull --rebase
-
-          # 2. 添加本地的更改
+          # 1. 添加本地的更改
+          echo "WAF rules changed. Staging rules.yaml..."
           git add rules.yaml
           
-          # 3. 提交更改
+          # 2. 提交更改
+          echo "Committing changes..."
           git commit -m "chore(waf): Auto-update WAF rules with latest ASN list"
           
-          # 4. 推送所有更改
+          # 3. 先拉取远程的最新更改 (使用 rebase 保持历史清爽)
+          echo "Pulling remote changes with rebase..."
+          git pull --rebase
+          
+          # 4. 推送所有更改到远程仓库
+          echo "Pushing changes to remote..."
           git push
+
 
 
 
