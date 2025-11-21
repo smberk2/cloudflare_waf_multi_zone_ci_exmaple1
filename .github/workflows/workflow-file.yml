@@ -36,18 +36,24 @@ jobs:
       - name: Update ASN Rules from AbuseIPDB
         run: python update_abuseipdb_asns.py
 
-      # 步骤 3: 提交并推送规则变更 (这部分完全不变)
-      - name: Commit and push if rules.yaml changed
+      # 步骤 3: 拉取、提交并推送规则变更
+      - name: Pull, Commit and Push if rules.yaml changed
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add rules.yaml
+          
+          # 检查是否有暂存的更改
           if ! git diff --staged --quiet; then
+            # 在提交前，先拉取最新的代码并进行 rebase
+            # rebase 模式可以保持提交历史的整洁
+            git pull --rebase
             git commit -m "chore(waf): Auto-update WAF rules with latest ASN list"
             git push
           else
             echo "No changes to WAF rules. Skipping commit."
           fi
+
 
       # 步骤 4: 设置 Terraform
       - name: Setup Terraform
