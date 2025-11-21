@@ -1,4 +1,4 @@
-# 路径：.github/workflows/workflow-file.yml
+# 路径：.github/workflows/your-workflow-file.yml
 
 name: Auto Update and Deploy Cloudflare WAF Rules
 
@@ -14,10 +14,9 @@ jobs:
       contents: write # 允许 Action 提交代码
 
     env:
-      # 只需要这两个 Secret 就够了！
-      # TF_API_TOKEN 用于登录 Terraform Cloud
-      # ABUSEIPDB_API_KEY 用于 Python 脚本
+      # 保持和你现在一样的三个 Secrets
       TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       ABUSEIPDB_API_KEY: ${{ secrets.ABUSEIPDB_API_KEY }}
 
     steps:
@@ -25,21 +24,19 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 步骤 2: 设置 Python 环境并运行更新脚本
+      # 步骤 2: 运行 Python 脚本更新规则 (这部分完全不变)
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests pyyaml
-
       - name: Update ASN Rules from AbuseIPDB
         run: python update_abuseipdb_asns.py
 
-      # 步骤 3: 如果规则有变，则提交并推送代码
+      # 步骤 3: 提交并推送规则变更 (这部分完全不变)
       - name: Commit and push if rules.yaml changed
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -52,23 +49,22 @@ jobs:
             echo "No changes to WAF rules. Skipping commit."
           fi
 
-      # 步骤 4: 设置 Terraform 环境
+      # 步骤 4: 设置 Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.6.6 # 保持版本一致
+          terraform_version: 1.6.6
 
-      # 步骤 5: Terraform 初始化 (这是关键的迁移步骤)
+      # 步骤 5: Terraform 初始化
+      # 它会自动读取 backend.tf 并连接到 Terraform Cloud
       - name: Terraform Init
-        id: init
         run: terraform init
 
       # 步骤 6: 解决之前域名被删除导致的状态不一致问题
       # 这个命令现在会直接操作云端的状态文件
       - name: Remove stale resource from state if it exists
         run: terraform state rm 'cloudflare_ruleset.waf_ruleset["20241108.xyz"]' || true
-      
+
       # 步骤 7: Terraform 部署
       - name: Terraform Apply
-        id: apply
         run: terraform apply -auto-approve
